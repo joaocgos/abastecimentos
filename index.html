@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f7f7f8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Abastecimentos">
+<title>Registo de Abastecimentos</title>
+<style>
+  :root {
+    --bg: #f7f7f8; --card: #ffffff; --primary: #767676; --primary-dark: #5a5a5a;
+    --accent: #e30a17; --text: #1a1a1a; --muted: #767676; --muted2: #3a3a3a;
+    --border: #e6e6e6; --ok: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: var(--muted2); }
+  .subtitle { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05); margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .02em; }
+  input, textarea, select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); background: var(--bg);
+    border-radius: 12px; font-size: 14px; font-family: inherit; color: var(--text); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--muted2); }
+  input:disabled { color: var(--muted2); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; min-height: 14px; }
+  .hint.warn { color: var(--accent); }
+  .full { grid-column: 1 / -1; }
+  .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  button { padding: 12px 18px; border: none; border-radius: 14px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  button:disabled { opacity: .6; cursor: default; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+  .btn-secondary { background: var(--bg); border: 1px solid var(--border); color: var(--muted2); }
+  .btn-secondary:hover { background: #eeeeef; }
+  .required::after { content: " *"; color: var(--accent); }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: var(--ok); } .status.err { color: var(--accent); }
+  .link { background: none; border: none; padding: 0; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--border); padding: 14px 20px; border-radius: 14px; }
+  .stat .value { font-size: 20px; font-weight: 700; color: var(--muted2); }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+  .toolbar .actions { margin-top: 0; }
+  .filter-input { max-width: 280px; }
+  .table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td.obs { white-space: normal; min-width: 160px; }
+  th { background: var(--bg); color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 11px;
+    letter-spacing: .02em; position: sticky; top: 0; }
+  tr:hover td { background: var(--bg); }
+  .num { text-align: right; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; background: var(--bg);
+    border: 1px solid var(--border); color: var(--muted2); font-size: 11px; font-weight: 600; }
+  .empty { text-align: center; color: var(--muted); padding: 30px; }
+  .icon-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 6px; }
+  .icon-btn:hover { opacity: .7; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--muted2); color: #fff; padding: 10px 18px;
+    border-radius: 14px; font-size: 14px; opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .hidden { display: none !important; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { background: var(--card); border: 1px solid var(--border); color: var(--muted2); }
+  .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .stat.low .value { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Registo de Abastecimentos</h1>
+  <div class="subtitle">Os dados ficam na tua Google Sheet (separador "Dados").</div>
+
+  <div class="card" id="configCard">
+    <div id="configForm">
+      <label class="required">URL da aplicação Web (Google Apps Script)</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:240px;">
+        <input type="password" id="apiPin" placeholder="PIN (4 dígitos)" inputmode="numeric" maxlength="4" autocomplete="off" style="width:150px;">
+        <button type="button" class="btn-primary" id="saveApiUrl">Ligar</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+      <span class="status" id="connStatus"></span>
+      <button type="button" class="link hidden" id="reloadBtn">Recarregar</button>
+      <button type="button" class="link hidden" id="changeUrlBtn">Alterar ligação</button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="tabs">
+      <button type="button" class="tab active" data-view="viewAbast">Abastecimentos</button>
+      <button type="button" class="tab" data-view="viewDeposito">Depósito (entradas)</button>
+    </div>
+    <div class="stats" id="stats"></div>
+
+    <div id="viewAbast">
+    <div class="card">
+      <form id="form">
+        <div class="form-grid">
+          <div>
+            <label class="required">Data e hora</label>
+            <input type="datetime-local" id="data" required>
+          </div>
+          <div>
+            <label class="required">Veículo (Matrícula)</label>
+            <select id="matriculaSel" required></select>
+            <input type="text" id="matricula" placeholder="Nova matrícula (00-AA-00)" class="hidden" style="margin-top:6px;" autocomplete="off">
+          </div>
+          <div>
+            <label class="required">Condutor</label>
+            <select id="condutorSel" required></select>
+            <input type="text" id="condutor" placeholder="Nome do novo condutor" class="hidden" style="margin-top:6px;" autocomplete="off">
+          </div>
+          <div>
+            <label class="required">Quantidade (L)</label>
+            <input type="number" id="litros" step="0.01" min="0.01" placeholder="0" required>
+          </div>
+          <div>
+            <label>Quilometragem (Km) - opcional</label>
+            <input type="number" id="km" step="1" min="0" placeholder="Vazio se não marca">
+            <div class="hint" id="kmHint"></div>
+          </div>
+          <div>
+            <label>Média (L/100km) - opcional</label>
+            <input type="text" id="media" placeholder="Automática (precisa de km)" disabled>
+            <div class="hint" id="mediaHint"></div>
+          </div>
+          <div>
+            <label>Contagem geral do depósito</label>
+            <input type="number" id="contagem" step="any" min="0" placeholder="Leitura da bomba">
+            <div class="hint" id="contagemHint"></div>
+          </div>
+          <div class="full">
+            <label>Observações</label>
+            <textarea id="observacoes" rows="2" placeholder="Notas adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary" id="submitBtn">Adicionar registo</button>
+          <button type="button" class="btn-secondary hidden" id="cancelEdit">Cancelar edição</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <input type="text" class="filter-input" id="filter" placeholder="Filtrar por matrícula, condutor ou observação...">
+        <div class="actions">
+          <button class="btn-secondary" id="exportCsv">Exportar CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th><th>Veículo (Matrícula)</th><th>Condutor</th>
+              <th class="num">Litros</th><th class="num">Km</th><th class="num">Média L/100</th>
+              <th class="num">Contagem depósito</th><th>Observações</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty hidden" id="emptyMsg">Sem registos.</div>
+      </div>
+    </div>
+    </div>
+
+    <div id="viewDeposito" class="hidden">
+      <div class="card">
+        <form id="entForm">
+          <div class="form-grid">
+            <div>
+              <label class="required">Data e hora</label>
+              <input type="datetime-local" id="entData" required>
+            </div>
+            <div>
+              <label class="required">Litros recebidos</label>
+              <input type="number" id="entLitros" step="0.01" min="0.01" placeholder="0" required>
+            </div>
+            <div>
+              <label class="required">Quem recebeu</label>
+              <select id="recebeuSel" required></select>
+              <input type="text" id="recebeu" placeholder="Nome de quem recebeu" class="hidden" style="margin-top:6px;" autocomplete="off">
+            </div>
+          </div>
+          <div class="hint" id="entHint" style="margin-top:10px;"></div>
+          <div class="hint" style="margin-top:4px;">O stock conta a partir da data da entrada mais antiga: regista aí o stock inicial (com "Quem recebeu" = Stock inicial).</div>
+          <div class="actions">
+            <button type="submit" class="btn-primary" id="entSubmit">Adicionar entrada</button>
+            <button type="button" class="btn-secondary hidden" id="entCancel">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th class="num">Litros recebidos</th><th>Quem recebeu</th><th></th></tr></thead>
+            <tbody id="entBody"></tbody>
+          </table>
+          <div class="empty hidden" id="entEmpty">Sem entradas registadas.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let apiUrl = '';
+let apiPin = '';
+try { apiUrl = localStorage.getItem('apiUrl_v1') || ''; apiPin = localStorage.getItem('apiPin_v1') || ''; } catch (e) {}
+let records = [];
+let entradas = [];
+let listas = { matricula: [], condutor: [], recebeu: [] };
+let editingId = null;
+let entEditingId = null;
+
+const $ = id => document.getElementById(id);
+const form = $('form'), submitBtn = $('submitBtn');
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function nowStr() { const d = new Date(); return todayStr() + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function toInputDt(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s || '') ? s + 'T00:00' : (s || ''); }
+function fmtDate(s) { const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}:\d{2}))?$/.exec(s || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] + (m[4] ? ' ' + m[4] : '') : (s || '—'); }
+
+// A hora sugerida acompanha o momento em que se preenche, enquanto ninguém a alterar à mão
+const dtDirty = { data: false, entData: false };
+['data', 'entData'].forEach(id => $(id).addEventListener('input', () => { dtDirty[id] = true; }));
+function refreshNow() {
+  if (!dtDirty.data && !editingId) $('data').value = nowStr();
+  if (!dtDirty.entData && !entEditingId) $('entData').value = nowStr();
+}
+window.addEventListener('focus', refreshNow);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshNow(); });
+document.querySelectorAll('#form input, #form select, #form textarea').forEach(el => el.addEventListener('focus', () => { if (!dtDirty.data && !editingId) $('data').value = nowStr(); }));
+document.querySelectorAll('#entForm input, #entForm select').forEach(el => el.addEventListener('focus', () => { if (!dtDirty.entData && !entEditingId) $('entData').value = nowStr(); }));
+function fmtNum(v, max) { return v === null || v === undefined ? '—' : v.toLocaleString('pt-PT', { maximumFractionDigits: max }); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function norm(s) { return String(s || '').trim().toUpperCase(); }
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+function setStatus(msg, cls) { const s = $('connStatus'); s.textContent = msg; s.className = 'status ' + (cls || ''); }
+
+const PIN_ERRORS = {
+  PIN_INVALIDO: 'PIN incorreto.',
+  PIN_BLOQUEADO: 'Demasiadas tentativas erradas. Tenta novamente daqui a 15 minutos.',
+  PIN_NAO_DEFINIDO: 'O PIN ainda não foi definido no Code.gs (constante PIN).'
+};
+function apiError(msg) { return new Error(PIN_ERRORS[msg] || msg); }
+
+async function apiPost(action, payload) {
+  const res = await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action, pin: apiPin, ...payload }) });
+  const json = await res.json();
+  if (!json.ok) throw apiError(json.error || 'Erro desconhecido');
+}
+
+async function loadRecords() {
+  setStatus('A carregar dados da Google Sheet...');
+  try {
+    const res = await fetch(apiUrl + (apiUrl.includes('?') ? '&' : '?') + 'pin=' + encodeURIComponent(apiPin) + '&t=' + Date.now());
+    const json = await res.json();
+    if (!json.ok) throw apiError(json.error || 'Erro ao ler dados');
+    records = json.records;
+    entradas = json.entradas || [];
+    listas = Object.assign({ matricula: [], condutor: [], recebeu: [] }, json.listas || {});
+    setStatus('Ligado - ' + records.length + ' registos carregados.', 'ok');
+    $('app').classList.remove('hidden');
+    $('configForm').classList.add('hidden');
+    $('reloadBtn').classList.remove('hidden');
+    $('changeUrlBtn').classList.remove('hidden');
+    render();
+  } catch (err) {
+    setStatus('Não foi possível ligar: ' + err.message, 'err');
+    $('configForm').classList.remove('hidden');
+    $('app').classList.add('hidden');
+  }
+}
+
+// Média = litros deste abastecimento / km desde o último registo com km do mesmo veículo
+function calcMedia(matricula, km, litros, excludeId) {
+  if (km === null || litros === null) return { media: null, note: km === null ? 'Sem km - média não calculada' : '' };
+  const key = norm(matricula);
+  let prev = null;
+  records.forEach(r => {
+    if (r.id === excludeId || norm(r.matricula) !== key || r.km === null || r.km >= km) return;
+    if (prev === null || r.km > prev) prev = r.km;
+  });
+  if (prev === null) return { media: null, note: 'Sem km anterior deste veículo' };
+  const media = litros / (km - prev) * 100;
+  if (media < 2 || media > 60) return { media: null, note: 'Km fora do esperado (média ' + media.toFixed(1) + ') - confirma o km', warn: true };
+  return { media: Math.round(media * 10) / 10, note: 'Desde ' + fmtNum(prev, 0) + ' km' };
+}
+
+function optNum(id) { const v = $(id).value.trim(); return v === '' || isNaN(Number(v)) ? null : Number(v); }
+
+function readForm() {
+  return {
+    data: $('data').value, matricula: $('matricula').value.trim().toUpperCase(), condutor: $('condutor').value.trim(),
+    litros: optNum('litros'), km: optNum('km'), contagem: optNum('contagem'),
+    observacoes: $('observacoes').value.trim()
+  };
+}
+
+function missingRequired(f) {
+  const m = [];
+  if (!f.data) m.push('Data');
+  if (!f.matricula) m.push('Matrícula');
+  if (!f.condutor) m.push('Condutor');
+  if (f.litros === null || f.litros <= 0) m.push('Quantidade (L)');
+  return m;
+}
+
+function updatePreview() {
+  const f = readForm();
+  const hint = $('kmHint');
+  const same = records.filter(r => norm(r.matricula) === norm(f.matricula) && f.matricula).sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  const lastKm = same.find(r => r.km !== null);
+  hint.textContent = lastKm ? 'Último km: ' + fmtNum(lastKm.km, 0) + ' (' + fmtDate(lastKm.data) + ')' : '';
+  const c = calcMedia(f.matricula, f.km, f.litros, editingId);
+  $('media').value = c.media === null ? '' : String(c.media).replace('.', ',');
+  const mh = $('mediaHint'); mh.textContent = c.note || ''; mh.className = 'hint' + (c.warn ? ' warn' : '');
+  if (f.km !== null && lastKm && f.km < lastKm.km) { hint.textContent += ' - atenção: km inferior ao último'; hint.className = 'hint warn'; } else hint.className = 'hint';
+  const lastC = records.filter(r => r.contagem !== null && r.id !== editingId).sort((a, b) => (b.data || '').localeCompare(a.data || '')).at(0);
+  const ch = $('contagemHint');
+  ch.textContent = lastC ? 'Última contagem: ' + fmtNum(lastC.contagem, 2) + ' (' + fmtDate(lastC.data) + ')' : '';
+  ch.className = 'hint';
+  if (f.contagem !== null && lastC && f.contagem < lastC.contagem) { ch.textContent += ' - atenção: inferior à última'; ch.className = 'hint warn'; }
+}
+['matricula', 'km', 'litros', 'contagem'].forEach(id => $(id).addEventListener('input', updatePreview));
+
+const NEW = '__new__';
+const FIELDS = { matricula: 'matriculaSel', condutor: 'condutorSel', recebeu: 'recebeuSel' };
+
+// Lista única (sem repetidos por maiúsculas/espaços) e sem lixo tipo "----"
+function uniqList(values, upper) {
+  const seen = new Map();
+  values.forEach(v => {
+    const s = String(v || '').trim();
+    if (!/[A-Za-zÀ-ÿ0-9]/.test(s)) return;
+    const val = upper ? s.toUpperCase() : s;
+    const k = val.toLowerCase();
+    if (!seen.has(k)) seen.set(k, val);
+  });
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'pt'));
+}
+
+function setChoice(field, value) {
+  const sel = $(FIELDS[field]), txt = $(field), v = String(value || '').trim();
+  const opt = [...sel.options].find(o => o.value !== NEW && o.value !== '' && o.value.toLowerCase() === v.toLowerCase());
+  if (!v) { sel.value = ''; txt.value = ''; txt.classList.add('hidden'); }
+  else if (opt) { sel.value = opt.value; txt.value = opt.value; txt.classList.add('hidden'); }
+  else { sel.value = NEW; txt.value = v; txt.classList.remove('hidden'); }
+}
+
+function fillLists() {
+  const cur = { matricula: $('matricula').value, condutor: $('condutor').value, recebeu: $('recebeu').value };
+  const build = (field, items, ph) => {
+    $(FIELDS[field]).innerHTML = '<option value="">' + ph + '</option>' +
+      items.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') +
+      '<option value="' + NEW + '">+ Novo...</option>';
+    setChoice(field, cur[field]);
+  };
+  build('matricula', uniqList(listas.matricula, true), 'Escolher matrícula...');
+  build('condutor', uniqList(listas.condutor, false), 'Escolher condutor...');
+  build('recebeu', uniqList(listas.recebeu.concat(['Stock inicial']), false), 'Escolher...');
+}
+
+Object.keys(FIELDS).forEach(field => {
+  $(FIELDS[field]).addEventListener('change', e => {
+    const txt = $(field);
+    if (e.target.value === NEW) { txt.value = ''; txt.classList.remove('hidden'); txt.focus(); }
+    else { txt.value = e.target.value; txt.classList.add('hidden'); }
+    txt.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+});
+
+function render() {
+  const q = $('filter').value.trim().toLowerCase();
+  let list = records.map((r, i) => ({ ...r, _i: i }));
+  if (q) list = list.filter(r => (r.matricula + ' ' + r.condutor + ' ' + r.observacoes).toLowerCase().includes(q));
+  list.sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
+  $('tbody').innerHTML = list.map(r => `<tr>
+    <td>${fmtDate(r.data)}</td>
+    <td>${r.matricula ? '<span class="badge">' + esc(r.matricula) + '</span>' : '—'}</td>
+    <td>${esc(r.condutor) || '—'}</td>
+    <td class="num">${fmtNum(r.litros, 2)}</td>
+    <td class="num">${fmtNum(r.km, 0)}</td>
+    <td class="num">${fmtNum(r.media, 1)}</td>
+    <td class="num">${fmtNum(r.contagem, 2)}</td>
+    <td class="obs">${esc(r.observacoes)}</td>
+    <td><button class="icon-btn" data-edit="${esc(r.id)}" title="Editar">Editar</button>
+        <button class="icon-btn" data-del="${esc(r.id)}" title="Eliminar">Eliminar</button></td></tr>`).join('');
+  $('emptyMsg').classList.toggle('hidden', list.length > 0);
+  const totalL = records.reduce((s, r) => s + (r.litros || 0), 0);
+  const veic = new Set(records.map(r => norm(r.matricula)).filter(Boolean)).size;
+  let stockStat = '<div class="stat"><div class="value">—</div><div class="lbl">Stock depósito (sem entradas)</div></div>';
+  const stock = stockAtual(null);
+  if (stock !== null) {
+    const start = entradas.map(e => e.data).filter(Boolean).sort()[0];
+    const pct = Math.round(stock / CAPACIDADE * 100);
+    stockStat = '<div class="stat' + (stock < 0 || stock > CAPACIDADE ? ' low' : '') + '"><div class="value">' + fmtNum(stock, 0) + ' L</div><div class="lbl">de ' + fmtNum(CAPACIDADE, 0) + ' L (' + pct + '%) - desde ' + fmtDate(start) + '</div></div>';
+  }
+  renderEntradas();
+  $('stats').innerHTML = stockStat +
+    `<div class="stat"><div class="value">${records.length}</div><div class="lbl">Registos</div></div>
+     <div class="stat"><div class="value">${fmtNum(totalL, 0)} L</div><div class="lbl">Total litros</div></div>
+     <div class="stat"><div class="value">${veic}</div><div class="lbl">Veículos</div></div>`;
+  fillLists();
+}
+
+const CAPACIDADE = 1000;
+
+function stockAtual(excludeEntId) {
+  const es = entradas.filter(e => e.id !== excludeEntId);
+  if (!es.length) return null;
+  const start = es.map(e => e.data).filter(Boolean).sort()[0];
+  return es.reduce((s, e) => s + (e.litros || 0), 0) - records.filter(r => r.data >= start).reduce((s, r) => s + (r.litros || 0), 0);
+}
+
+// Litros que ainda cabem no depósito (null se não houver stock de partida)
+function espacoLivre() {
+  const s = stockAtual(entEditingId);
+  return s === null ? null : CAPACIDADE - s;
+}
+
+function updateEntHint() {
+  const h = $('entHint'), livre = espacoLivre(), l = optNum('entLitros');
+  h.className = 'hint';
+  if (livre === null) { h.textContent = ''; return; }
+  h.textContent = 'Cabem ainda ' + fmtNum(Math.max(livre, 0), 0) + ' L (capacidade ' + fmtNum(CAPACIDADE, 0) + ' L)';
+  if (l !== null && l > livre) { h.textContent += ' - atenção: esta entrada ultrapassa a capacidade'; h.className = 'hint warn'; }
+}
+$('entLitros').addEventListener('input', updateEntHint);
+
+function renderEntradas() {
+  updateEntHint();
+  const list = entradas.map((e, i) => ({ ...e, _i: i })).sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
+  $('entBody').innerHTML = list.map(e => `<tr>
+    <td>${fmtDate(e.data)}</td><td class="num">${fmtNum(e.litros, 2)}</td><td>${esc(e.recebeu) || '—'}</td>
+    <td><button class="icon-btn" data-edit="${esc(e.id)}">Editar</button>
+        <button class="icon-btn" data-del="${esc(e.id)}">Eliminar</button></td></tr>`).join('');
+  $('entEmpty').classList.toggle('hidden', list.length > 0);
+}
+
+// Acrescenta à lista (separador "Listas") os valores novos escolhidos com "+ Novo..."
+async function addToListas(tipo, valor) {
+  const v = String(valor || '').trim();
+  if (!v || listas[tipo].some(x => x.toLowerCase() === v.toLowerCase())) return;
+  try { await apiPost('lista_add', { tipo, valor: v }); listas[tipo].push(v); } catch (e) { /* a lista atualiza-se ao recarregar */ }
+}
+
+function resetEntForm() {
+  $('entForm').reset(); entEditingId = null;
+  setChoice('recebeu', '');
+  dtDirty.entData = false; $('entData').value = nowStr();
+  $('entSubmit').textContent = 'Adicionar entrada'; $('entSubmit').disabled = false;
+  $('entCancel').classList.add('hidden');
+}
+
+$('entForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const rec = { id: entEditingId || crypto.randomUUID(), data: $('entData').value, litros: optNum('entLitros'), recebeu: $('recebeu').value.trim() };
+  const miss = [];
+  if (!rec.data) miss.push('Data');
+  if (rec.litros === null || rec.litros <= 0) miss.push('Litros recebidos');
+  if (!rec.recebeu) miss.push('Quem recebeu');
+  if (miss.length) { alert('Campos obrigatórios em falta: ' + miss.join(', ')); return; }
+  const livre = espacoLivre();
+  if (livre !== null && rec.litros > livre && !confirm('Esta entrada (' + fmtNum(rec.litros, 2) + ' L) ultrapassa a capacidade do depósito (' + fmtNum(CAPACIDADE, 0) + ' L): só cabem ' + fmtNum(Math.max(livre, 0), 0) + ' L.\nGuardar mesmo assim?')) return;
+  const btn = $('entSubmit'); btn.disabled = true; btn.textContent = 'A guardar...';
+  try {
+    await apiPost(entEditingId ? 'ent_update' : 'ent_create', { record: rec });
+    if (entEditingId) entradas[entradas.findIndex(x => x.id === entEditingId)] = rec; else entradas.push(rec);
+    toast(entEditingId ? 'Entrada atualizada' : 'Entrada adicionada');
+    await addToListas('recebeu', rec.recebeu);
+    resetEntForm(); render();
+  } catch (err) {
+    alert('Erro ao guardar na Google Sheet: ' + err.message);
+    btn.disabled = false; btn.textContent = entEditingId ? 'Guardar alterações' : 'Adicionar entrada';
+  }
+});
+
+$('entBody').addEventListener('click', async e => {
+  const editId = e.target.dataset.edit, delId = e.target.dataset.del;
+  if (editId) {
+    const r = entradas.find(x => x.id === editId); if (!r) return;
+    entEditingId = editId;
+    $('entData').value = toInputDt(r.data); $('entLitros').value = r.litros ?? ''; setChoice('recebeu', r.recebeu);
+    $('entSubmit').textContent = 'Guardar alterações'; $('entCancel').classList.remove('hidden');
+  } else if (delId) {
+    const r = entradas.find(x => x.id === delId); if (!r) return;
+    if (!confirm('Eliminar a entrada de ' + fmtDate(r.data) + ' (' + fmtNum(r.litros, 2) + ' L)?\nA linha é removida da Google Sheet.')) return;
+    try { await apiPost('ent_delete', { id: delId }); entradas = entradas.filter(x => x.id !== delId); render(); toast('Entrada eliminada'); }
+    catch (err) { alert('Erro ao eliminar: ' + err.message); }
+  }
+});
+$('entCancel').addEventListener('click', resetEntForm);
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  ['viewAbast', 'viewDeposito'].forEach(v => $(v).classList.toggle('hidden', v !== t.dataset.view));
+}));
+
+function resetForm() {
+  form.reset(); editingId = null;
+  setChoice('matricula', ''); setChoice('condutor', '');
+  dtDirty.data = false; $('data').value = nowStr();
+  submitBtn.textContent = 'Adicionar registo'; submitBtn.disabled = false;
+  $('cancelEdit').classList.add('hidden');
+  $('media').value = ''; $('kmHint').textContent = ''; $('mediaHint').textContent = ''; $('contagemHint').textContent = '';
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = readForm();
+  const missing = missingRequired(f);
+  if (missing.length) { alert('Campos obrigatórios em falta: ' + missing.join(', ')); return; }
+  const orig = editingId ? records.find(r => r.id === editingId) : null;
+  let media;
+  if (orig && orig.km === f.km && orig.litros === f.litros && norm(orig.matricula) === norm(f.matricula)) media = orig.media;
+  else media = calcMedia(f.matricula, f.km, f.litros, editingId).media;
+  const record = { id: editingId || crypto.randomUUID(), ...f, media };
+  submitBtn.disabled = true; submitBtn.textContent = 'A guardar...';
+  try {
+    await apiPost(editingId ? 'update' : 'create', { record });
+    if (editingId) records[records.findIndex(r => r.id === editingId)] = record; else records.push(record);
+    toast(editingId ? 'Registo atualizado' : 'Registo adicionado');
+    await addToListas('matricula', record.matricula);
+    await addToListas('condutor', record.condutor);
+    resetForm(); render();
+  } catch (err) {
+    alert('Erro ao guardar na Google Sheet: ' + err.message);
+    submitBtn.disabled = false; submitBtn.textContent = editingId ? 'Guardar alterações' : 'Adicionar registo';
+  }
+});
+
+$('tbody').addEventListener('click', async e => {
+  const editId = e.target.dataset.edit, delId = e.target.dataset.del;
+  if (editId) {
+    const r = records.find(x => x.id === editId); if (!r) return;
+    editingId = editId;
+    $('data').value = toInputDt(r.data); setChoice('matricula', r.matricula); setChoice('condutor', r.condutor);
+    $('litros').value = r.litros ?? ''; $('km').value = r.km ?? ''; $('contagem').value = r.contagem ?? ''; $('observacoes').value = r.observacoes;
+    submitBtn.textContent = 'Guardar alterações'; $('cancelEdit').classList.remove('hidden');
+    updatePreview(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (delId) {
+    const r = records.find(x => x.id === delId); if (!r) return;
+    if (!confirm('Eliminar o registo de ' + fmtDate(r.data) + ' (' + (r.matricula || 'sem matrícula') + ', ' + r.condutor + ')?\nA linha é removida da Google Sheet.')) return;
+    try { await apiPost('delete', { id: delId }); records = records.filter(x => x.id !== delId); render(); toast('Registo eliminado'); }
+    catch (err) { alert('Erro ao eliminar: ' + err.message); }
+  }
+});
+
+$('cancelEdit').addEventListener('click', resetForm);
+$('filter').addEventListener('input', render);
+$('reloadBtn').addEventListener('click', loadRecords);
+$('changeUrlBtn').addEventListener('click', () => { $('configForm').classList.remove('hidden'); $('apiUrl').value = apiUrl; $('apiPin').value = ''; });
+$('saveApiUrl').addEventListener('click', () => {
+  const v = $('apiUrl').value.trim(), p = $('apiPin').value.trim();
+  if (!v) return;
+  if (!/^\d{4}$/.test(p)) { setStatus('O PIN tem de ter 4 dígitos.', 'err'); return; }
+  apiUrl = v; apiPin = p;
+  try { localStorage.setItem('apiUrl_v1', v); localStorage.setItem('apiPin_v1', p); } catch (e) {}
+  loadRecords();
+});
+
+$('exportCsv').addEventListener('click', () => {
+  const head = ['Data', 'Veículo (Matrícula)', 'Condutor', 'Quantidade (L)', 'Quilometragem (Km)', 'Média (L/100km)', 'Observações', 'Contagem geral do depósito'];
+  const text = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const numc = v => '"' + String(v ?? '').replace('.', ',') + '"';
+  const rows = records.slice().sort((a, b) => (a.data || '').localeCompare(b.data || ''))
+    .map(r => [text(fmtDate(r.data)), text(r.matricula), text(r.condutor), numc(r.litros), numc(r.km), numc(r.media), text(r.observacoes), numc(r.contagem)].join(';'));
+  const blob = new Blob(['﻿' + [head.map(h => '"' + h + '"').join(';'), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'abastecimentos_' + todayStr() + '.csv'; a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('data').value = nowStr(); $('entData').value = nowStr();
+if (apiUrl) { $('apiUrl').value = apiUrl; if (apiPin) loadRecords(); else setStatus('Introduz o PIN para ligar.'); }
+</script>
+</body>
+</html>
