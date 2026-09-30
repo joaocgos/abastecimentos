@@ -162,6 +162,11 @@
             <input type="number" id="contagem" step="any" min="0" placeholder="Leitura da bomba">
             <div class="hint" id="contagemHint"></div>
           </div>
+          <div>
+            <label class="required">Registado por</label>
+            <select id="registouSel" required></select>
+            <input type="text" id="registou" placeholder="Nome de quem regista" class="hidden" style="margin-top:6px;" autocomplete="off">
+          </div>
           <div class="full">
             <label>Observações</label>
             <textarea id="observacoes" rows="2" placeholder="Notas adicionais..."></textarea>
@@ -176,7 +181,7 @@
 
     <div class="card">
       <div class="toolbar">
-        <input type="text" class="filter-input" id="filter" placeholder="Filtrar por matrícula, condutor ou observação...">
+        <input type="text" class="filter-input" id="filter" placeholder="Filtrar por matrícula, condutor, observação ou quem registou...">
         <div class="actions">
           <button class="btn-secondary" id="exportCsv">Exportar CSV</button>
         </div>
@@ -187,7 +192,7 @@
             <tr>
               <th>Data</th><th>Veículo (Matrícula)</th><th>Condutor</th>
               <th class="num">Litros</th><th class="num">Km</th><th class="num">Média L/100</th>
-              <th class="num">Contagem depósito</th><th>Observações</th><th></th>
+              <th class="num">Contagem depósito</th><th>Observações</th><th>Registado por</th><th></th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -214,6 +219,11 @@
               <select id="recebeuSel" required></select>
               <input type="text" id="recebeu" placeholder="Nome de quem recebeu" class="hidden" style="margin-top:6px;" autocomplete="off">
             </div>
+            <div>
+              <label class="required">Registado por</label>
+              <select id="entRegistouSel" required></select>
+              <input type="text" id="entRegistou" placeholder="Nome de quem regista" class="hidden" style="margin-top:6px;" autocomplete="off">
+            </div>
           </div>
           <div class="hint" id="entHint" style="margin-top:10px;"></div>
           <div class="hint" style="margin-top:4px;">O stock conta a partir da data da entrada mais antiga: regista aí o stock inicial (com "Quem recebeu" = Stock inicial).</div>
@@ -226,7 +236,7 @@
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Data</th><th class="num">Litros recebidos</th><th>Quem recebeu</th><th></th></tr></thead>
+            <thead><tr><th>Data</th><th class="num">Litros recebidos</th><th>Quem recebeu</th><th>Registado por</th><th></th></tr></thead>
             <tbody id="entBody"></tbody>
           </table>
           <div class="empty hidden" id="entEmpty">Sem entradas registadas.</div>
@@ -243,7 +253,7 @@ let apiPin = '';
 try { apiUrl = localStorage.getItem('apiUrl_v1') || ''; apiPin = localStorage.getItem('apiPin_v1') || ''; } catch (e) {}
 let records = [];
 let entradas = [];
-let listas = { matricula: [], condutor: [], recebeu: [] };
+let listas = { matricula: [], condutor: [], recebeu: [], registou: [] };
 let editingId = null;
 let entEditingId = null;
 
@@ -294,7 +304,7 @@ async function loadRecords() {
     if (!json.ok) throw apiError(json.error || 'Erro ao ler dados');
     records = json.records;
     entradas = json.entradas || [];
-    listas = Object.assign({ matricula: [], condutor: [], recebeu: [] }, json.listas || {});
+    listas = Object.assign({ matricula: [], condutor: [], recebeu: [], registou: [] }, json.listas || {});
     setStatus('Ligado - ' + records.length + ' registos carregados.', 'ok');
     $('app').classList.remove('hidden');
     $('configForm').classList.add('hidden');
@@ -329,6 +339,7 @@ function readForm() {
   return {
     data: $('data').value, matricula: $('matricula').value.trim().toUpperCase(), condutor: $('condutor').value.trim(),
     litros: optNum('litros'), km: optNum('km'), media: optNum('media'), contagem: optNum('contagem'),
+    registou: $('registou').value.trim(),
     observacoes: $('observacoes').value.trim()
   };
 }
@@ -339,6 +350,7 @@ function missingRequired(f) {
   if (!f.matricula) m.push('Matrícula');
   if (!f.condutor) m.push('Condutor');
   if (f.litros === null || f.litros <= 0) m.push('Quantidade (L)');
+  if (!f.registou) m.push('Registado por');
   return m;
 }
 
@@ -364,7 +376,11 @@ function updatePreview() {
 ['matricula', 'km', 'litros', 'contagem'].forEach(id => $(id).addEventListener('input', updatePreview));
 
 const NEW = '__new__';
-const FIELDS = { matricula: 'matriculaSel', condutor: 'condutorSel', recebeu: 'recebeuSel' };
+const FIELDS = { matricula: 'matriculaSel', condutor: 'condutorSel', recebeu: 'recebeuSel', registou: 'registouSel', entRegistou: 'entRegistouSel' };
+
+// Cada telemóvel/PC lembra-se de quem registou da última vez
+function savedRegistou() { try { return localStorage.getItem('registou_v1') || ''; } catch (e) { return ''; } }
+function saveRegistou(v) { try { localStorage.setItem('registou_v1', v); } catch (e) {} }
 
 // Lista única (sem repetidos por maiúsculas/espaços) e sem lixo tipo "----"
 function uniqList(values, upper) {
@@ -388,7 +404,10 @@ function setChoice(field, value) {
 }
 
 function fillLists() {
-  const cur = { matricula: $('matricula').value, condutor: $('condutor').value, recebeu: $('recebeu').value };
+  const cur = {
+    matricula: $('matricula').value, condutor: $('condutor').value, recebeu: $('recebeu').value,
+    registou: $('registou').value || savedRegistou(), entRegistou: $('entRegistou').value || savedRegistou()
+  };
   const build = (field, items, ph) => {
     $(FIELDS[field]).innerHTML = '<option value="">' + ph + '</option>' +
       items.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') +
@@ -398,6 +417,9 @@ function fillLists() {
   build('matricula', uniqList(listas.matricula, true), 'Escolher matrícula...');
   build('condutor', uniqList(listas.condutor, false), 'Escolher condutor...');
   build('recebeu', uniqList(listas.recebeu.concat(['Stock inicial']), false), 'Escolher...');
+  const regs = uniqList(listas.registou.concat(savedRegistou()), false);
+  build('registou', regs, 'Escolher...');
+  build('entRegistou', regs, 'Escolher...');
 }
 
 Object.keys(FIELDS).forEach(field => {
@@ -412,7 +434,7 @@ Object.keys(FIELDS).forEach(field => {
 function render() {
   const q = $('filter').value.trim().toLowerCase();
   let list = records.map((r, i) => ({ ...r, _i: i }));
-  if (q) list = list.filter(r => (r.matricula + ' ' + r.condutor + ' ' + r.observacoes).toLowerCase().includes(q));
+  if (q) list = list.filter(r => (r.matricula + ' ' + r.condutor + ' ' + r.observacoes + ' ' + (r.registou || '')).toLowerCase().includes(q));
   list.sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
   $('tbody').innerHTML = list.map(r => `<tr>
     <td data-label="Data">${fmtDate(r.data)}</td>
@@ -423,6 +445,7 @@ function render() {
     <td class="num" data-label="Média L/100">${fmtNum(r.media, 1)}</td>
     <td class="num" data-label="Contagem depósito">${fmtNum(r.contagem, 2)}</td>
     <td class="obs" data-label="Observações">${esc(r.observacoes)}</td>
+    <td data-label="Registado por">${esc(r.registou) || '—'}</td>
     <td class="acts"><button class="icon-btn" data-edit="${esc(r.id)}" title="Editar">Editar</button>
         <button class="icon-btn" data-del="${esc(r.id)}" title="Eliminar">Eliminar</button></td></tr>`).join('');
   $('emptyMsg').classList.toggle('hidden', list.length > 0);
@@ -472,7 +495,7 @@ function renderEntradas() {
   updateEntHint();
   const list = entradas.map((e, i) => ({ ...e, _i: i })).sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
   $('entBody').innerHTML = list.map(e => `<tr>
-    <td data-label="Data">${fmtDate(e.data)}</td><td class="num" data-label="Litros recebidos">${fmtNum(e.litros, 2)}</td><td data-label="Quem recebeu">${esc(e.recebeu) || '—'}</td>
+    <td data-label="Data">${fmtDate(e.data)}</td><td class="num" data-label="Litros recebidos">${fmtNum(e.litros, 2)}</td><td data-label="Quem recebeu">${esc(e.recebeu) || '—'}</td><td data-label="Registado por">${esc(e.registou) || '—'}</td>
     <td class="acts"><button class="icon-btn" data-edit="${esc(e.id)}">Editar</button>
         <button class="icon-btn" data-del="${esc(e.id)}">Eliminar</button></td></tr>`).join('');
   $('entEmpty').classList.toggle('hidden', list.length > 0);
@@ -487,7 +510,7 @@ async function addToListas(tipo, valor) {
 
 function resetEntForm() {
   $('entForm').reset(); entEditingId = null;
-  setChoice('recebeu', '');
+  setChoice('recebeu', ''); setChoice('entRegistou', savedRegistou());
   dtDirty.entData = false; $('entData').value = nowStr();
   $('entSubmit').textContent = 'Adicionar entrada'; $('entSubmit').disabled = false;
   $('entCancel').classList.add('hidden');
@@ -495,11 +518,12 @@ function resetEntForm() {
 
 $('entForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const rec = { id: entEditingId || crypto.randomUUID(), data: $('entData').value, litros: optNum('entLitros'), recebeu: $('recebeu').value.trim() };
+  const rec = { id: entEditingId || crypto.randomUUID(), data: $('entData').value, litros: optNum('entLitros'), recebeu: $('recebeu').value.trim(), registou: $('entRegistou').value.trim() };
   const miss = [];
   if (!rec.data) miss.push('Data');
   if (rec.litros === null || rec.litros <= 0) miss.push('Litros recebidos');
   if (!rec.recebeu) miss.push('Quem recebeu');
+  if (!rec.registou) miss.push('Registado por');
   if (miss.length) { alert('Campos obrigatórios em falta: ' + miss.join(', ')); return; }
   const livre = espacoLivre();
   if (livre !== null && rec.litros > livre && !confirm('Esta entrada (' + fmtNum(rec.litros, 2) + ' L) ultrapassa a capacidade do depósito (' + fmtNum(CAPACIDADE, 0) + ' L): só cabem ' + fmtNum(Math.max(livre, 0), 0) + ' L.\nGuardar mesmo assim?')) return;
@@ -508,7 +532,9 @@ $('entForm').addEventListener('submit', async e => {
     await apiPost(entEditingId ? 'ent_update' : 'ent_create', { record: rec });
     if (entEditingId) entradas[entradas.findIndex(x => x.id === entEditingId)] = rec; else entradas.push(rec);
     toast(entEditingId ? 'Entrada atualizada' : 'Entrada adicionada');
+    saveRegistou(rec.registou);
     await addToListas('recebeu', rec.recebeu);
+    await addToListas('registou', rec.registou);
     resetEntForm(); render();
   } catch (err) {
     alert('Erro ao guardar na Google Sheet: ' + err.message);
@@ -521,7 +547,7 @@ $('entBody').addEventListener('click', async e => {
   if (editId) {
     const r = entradas.find(x => x.id === editId); if (!r) return;
     entEditingId = editId;
-    $('entData').value = toInputDt(r.data); $('entLitros').value = r.litros ?? ''; setChoice('recebeu', r.recebeu);
+    $('entData').value = toInputDt(r.data); $('entLitros').value = r.litros ?? ''; setChoice('recebeu', r.recebeu); setChoice('entRegistou', r.registou);
     $('entSubmit').textContent = 'Guardar alterações'; $('entCancel').classList.remove('hidden');
   } else if (delId) {
     const r = entradas.find(x => x.id === delId); if (!r) return;
@@ -539,7 +565,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
 
 function resetForm() {
   form.reset(); editingId = null;
-  setChoice('matricula', ''); setChoice('condutor', '');
+  setChoice('matricula', ''); setChoice('condutor', ''); setChoice('registou', savedRegistou());
   dtDirty.data = false; $('data').value = nowStr();
   submitBtn.textContent = 'Adicionar registo'; submitBtn.disabled = false;
   $('cancelEdit').classList.add('hidden');
@@ -557,8 +583,10 @@ form.addEventListener('submit', async e => {
     await apiPost(editingId ? 'update' : 'create', { record });
     if (editingId) records[records.findIndex(r => r.id === editingId)] = record; else records.push(record);
     toast(editingId ? 'Registo atualizado' : 'Registo adicionado');
+    saveRegistou(record.registou);
     await addToListas('matricula', record.matricula);
     await addToListas('condutor', record.condutor);
+    await addToListas('registou', record.registou);
     resetForm(); render();
   } catch (err) {
     alert('Erro ao guardar na Google Sheet: ' + err.message);
@@ -571,7 +599,7 @@ $('tbody').addEventListener('click', async e => {
   if (editId) {
     const r = records.find(x => x.id === editId); if (!r) return;
     editingId = editId;
-    $('data').value = toInputDt(r.data); setChoice('matricula', r.matricula); setChoice('condutor', r.condutor);
+    $('data').value = toInputDt(r.data); setChoice('matricula', r.matricula); setChoice('condutor', r.condutor); setChoice('registou', r.registou || savedRegistou());
     $('litros').value = r.litros ?? ''; $('km').value = r.km ?? ''; $('media').value = r.media ?? ''; $('contagem').value = r.contagem ?? ''; $('observacoes').value = r.observacoes;
     submitBtn.textContent = 'Guardar alterações'; $('cancelEdit').classList.remove('hidden');
     updatePreview(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -597,11 +625,11 @@ $('saveApiUrl').addEventListener('click', () => {
 });
 
 $('exportCsv').addEventListener('click', () => {
-  const head = ['Data', 'Veículo (Matrícula)', 'Condutor', 'Quantidade (L)', 'Quilometragem (Km)', 'Média (L/100km)', 'Observações', 'Contagem geral do depósito'];
+  const head = ['Data', 'Veículo (Matrícula)', 'Condutor', 'Quantidade (L)', 'Quilometragem (Km)', 'Média (L/100km)', 'Observações', 'Contagem geral do depósito', 'Registado por'];
   const text = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
   const numc = v => '"' + String(v ?? '').replace('.', ',') + '"';
   const rows = records.slice().sort((a, b) => (a.data || '').localeCompare(b.data || ''))
-    .map(r => [text(fmtDate(r.data)), text(r.matricula), text(r.condutor), numc(r.litros), numc(r.km), numc(r.media), text(r.observacoes), numc(r.contagem)].join(';'));
+    .map(r => [text(fmtDate(r.data)), text(r.matricula), text(r.condutor), numc(r.litros), numc(r.km), numc(r.media), text(r.observacoes), numc(r.contagem), text(r.registou)].join(';'));
   const blob = new Blob(['﻿' + [head.map(h => '"' + h + '"').join(';'), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'abastecimentos_' + todayStr() + '.csv'; a.click();
   URL.revokeObjectURL(a.href);
