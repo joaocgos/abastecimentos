@@ -71,6 +71,29 @@
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tab { background: var(--card); border: 1px solid var(--border); color: var(--muted2); }
   .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    h1 { font-size: 19px; }
+    .card { padding: 14px; border-radius: 16px; }
+    .form-grid { grid-template-columns: 1fr; gap: 12px; }
+    input, select, textarea { font-size: 16px; padding: 12px; }
+    button { min-height: 44px; }
+    .actions button, #saveApiUrl, .tab { flex: 1; }
+    .stats { gap: 10px; }
+    .stat { flex: 1 1 40%; padding: 12px 14px; }
+    .filter-input { max-width: none; width: 100%; }
+    .table-wrap { max-height: none; border: none; overflow: visible; }
+    table, tbody { display: block; }
+    thead { display: none; }
+    tr { display: block; border: 1px solid var(--border); border-radius: 14px; padding: 8px 12px; margin-bottom: 10px; background: var(--card); }
+    td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border: none; padding: 5px 0; white-space: normal; text-align: right; }
+    td::before { content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; text-align: left; flex-shrink: 0; }
+    td.obs:empty { display: none; }
+    td.acts { justify-content: flex-end; gap: 8px; padding-top: 8px; }
+    td.acts::before { content: none; }
+    .icon-btn { padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; }
+    .toast { left: 12px; right: 12px; bottom: 12px; text-align: center; }
+  }
   .stat.low .value { color: var(--accent); }
 </style>
 </head>
@@ -131,7 +154,7 @@
           </div>
           <div>
             <label>Média (L/100km) - opcional</label>
-            <input type="text" id="media" placeholder="Automática (precisa de km)" disabled>
+            <input type="number" id="media" step="0.1" min="0" inputmode="decimal" placeholder="Escrever à mão (opcional)">
             <div class="hint" id="mediaHint"></div>
           </div>
           <div>
@@ -305,7 +328,7 @@ function optNum(id) { const v = $(id).value.trim(); return v === '' || isNaN(Num
 function readForm() {
   return {
     data: $('data').value, matricula: $('matricula').value.trim().toUpperCase(), condutor: $('condutor').value.trim(),
-    litros: optNum('litros'), km: optNum('km'), contagem: optNum('contagem'),
+    litros: optNum('litros'), km: optNum('km'), media: optNum('media'), contagem: optNum('contagem'),
     observacoes: $('observacoes').value.trim()
   };
 }
@@ -326,8 +349,11 @@ function updatePreview() {
   const lastKm = same.find(r => r.km !== null);
   hint.textContent = lastKm ? 'Último km: ' + fmtNum(lastKm.km, 0) + ' (' + fmtDate(lastKm.data) + ')' : '';
   const c = calcMedia(f.matricula, f.km, f.litros, editingId);
-  $('media').value = c.media === null ? '' : String(c.media).replace('.', ',');
-  const mh = $('mediaHint'); mh.textContent = c.note || ''; mh.className = 'hint' + (c.warn ? ' warn' : '');
+  const mh = $('mediaHint');
+  if (c.media !== null) {
+    mh.innerHTML = 'Sugestão: ' + String(c.media).replace('.', ',') + ' (' + esc(c.note) + '; só vale se ambos os depósitos foram atestados aqui) <button type="button" class="link" id="useSug" data-v="' + c.media + '">Usar</button>';
+    mh.className = 'hint';
+  } else { mh.textContent = c.note || ''; mh.className = 'hint' + (c.warn ? ' warn' : ''); }
   if (f.km !== null && lastKm && f.km < lastKm.km) { hint.textContent += ' - atenção: km inferior ao último'; hint.className = 'hint warn'; } else hint.className = 'hint';
   const lastC = records.filter(r => r.contagem !== null && r.id !== editingId).sort((a, b) => (b.data || '').localeCompare(a.data || '')).at(0);
   const ch = $('contagemHint');
@@ -389,15 +415,15 @@ function render() {
   if (q) list = list.filter(r => (r.matricula + ' ' + r.condutor + ' ' + r.observacoes).toLowerCase().includes(q));
   list.sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
   $('tbody').innerHTML = list.map(r => `<tr>
-    <td>${fmtDate(r.data)}</td>
-    <td>${r.matricula ? '<span class="badge">' + esc(r.matricula) + '</span>' : '—'}</td>
-    <td>${esc(r.condutor) || '—'}</td>
-    <td class="num">${fmtNum(r.litros, 2)}</td>
-    <td class="num">${fmtNum(r.km, 0)}</td>
-    <td class="num">${fmtNum(r.media, 1)}</td>
-    <td class="num">${fmtNum(r.contagem, 2)}</td>
-    <td class="obs">${esc(r.observacoes)}</td>
-    <td><button class="icon-btn" data-edit="${esc(r.id)}" title="Editar">Editar</button>
+    <td data-label="Data">${fmtDate(r.data)}</td>
+    <td data-label="Matrícula">${r.matricula ? '<span class="badge">' + esc(r.matricula) + '</span>' : '—'}</td>
+    <td data-label="Condutor">${esc(r.condutor) || '—'}</td>
+    <td class="num" data-label="Litros">${fmtNum(r.litros, 2)}</td>
+    <td class="num" data-label="Km">${fmtNum(r.km, 0)}</td>
+    <td class="num" data-label="Média L/100">${fmtNum(r.media, 1)}</td>
+    <td class="num" data-label="Contagem depósito">${fmtNum(r.contagem, 2)}</td>
+    <td class="obs" data-label="Observações">${esc(r.observacoes)}</td>
+    <td class="acts"><button class="icon-btn" data-edit="${esc(r.id)}" title="Editar">Editar</button>
         <button class="icon-btn" data-del="${esc(r.id)}" title="Eliminar">Eliminar</button></td></tr>`).join('');
   $('emptyMsg').classList.toggle('hidden', list.length > 0);
   const totalL = records.reduce((s, r) => s + (r.litros || 0), 0);
@@ -440,13 +466,14 @@ function updateEntHint() {
   if (l !== null && l > livre) { h.textContent += ' - atenção: esta entrada ultrapassa a capacidade'; h.className = 'hint warn'; }
 }
 $('entLitros').addEventListener('input', updateEntHint);
+$('mediaHint').addEventListener('click', e => { if (e.target.id === 'useSug') $('media').value = e.target.dataset.v; });
 
 function renderEntradas() {
   updateEntHint();
   const list = entradas.map((e, i) => ({ ...e, _i: i })).sort((a, b) => (b.data || '').localeCompare(a.data || '') || b._i - a._i);
   $('entBody').innerHTML = list.map(e => `<tr>
-    <td>${fmtDate(e.data)}</td><td class="num">${fmtNum(e.litros, 2)}</td><td>${esc(e.recebeu) || '—'}</td>
-    <td><button class="icon-btn" data-edit="${esc(e.id)}">Editar</button>
+    <td data-label="Data">${fmtDate(e.data)}</td><td class="num" data-label="Litros recebidos">${fmtNum(e.litros, 2)}</td><td data-label="Quem recebeu">${esc(e.recebeu) || '—'}</td>
+    <td class="acts"><button class="icon-btn" data-edit="${esc(e.id)}">Editar</button>
         <button class="icon-btn" data-del="${esc(e.id)}">Eliminar</button></td></tr>`).join('');
   $('entEmpty').classList.toggle('hidden', list.length > 0);
 }
@@ -516,7 +543,7 @@ function resetForm() {
   dtDirty.data = false; $('data').value = nowStr();
   submitBtn.textContent = 'Adicionar registo'; submitBtn.disabled = false;
   $('cancelEdit').classList.add('hidden');
-  $('media').value = ''; $('kmHint').textContent = ''; $('mediaHint').textContent = ''; $('contagemHint').textContent = '';
+  $('kmHint').textContent = ''; $('mediaHint').textContent = ''; $('contagemHint').textContent = '';
 }
 
 form.addEventListener('submit', async e => {
@@ -524,11 +551,7 @@ form.addEventListener('submit', async e => {
   const f = readForm();
   const missing = missingRequired(f);
   if (missing.length) { alert('Campos obrigatórios em falta: ' + missing.join(', ')); return; }
-  const orig = editingId ? records.find(r => r.id === editingId) : null;
-  let media;
-  if (orig && orig.km === f.km && orig.litros === f.litros && norm(orig.matricula) === norm(f.matricula)) media = orig.media;
-  else media = calcMedia(f.matricula, f.km, f.litros, editingId).media;
-  const record = { id: editingId || crypto.randomUUID(), ...f, media };
+  const record = { id: editingId || crypto.randomUUID(), ...f };
   submitBtn.disabled = true; submitBtn.textContent = 'A guardar...';
   try {
     await apiPost(editingId ? 'update' : 'create', { record });
@@ -549,7 +572,7 @@ $('tbody').addEventListener('click', async e => {
     const r = records.find(x => x.id === editId); if (!r) return;
     editingId = editId;
     $('data').value = toInputDt(r.data); setChoice('matricula', r.matricula); setChoice('condutor', r.condutor);
-    $('litros').value = r.litros ?? ''; $('km').value = r.km ?? ''; $('contagem').value = r.contagem ?? ''; $('observacoes').value = r.observacoes;
+    $('litros').value = r.litros ?? ''; $('km').value = r.km ?? ''; $('media').value = r.media ?? ''; $('contagem').value = r.contagem ?? ''; $('observacoes').value = r.observacoes;
     submitBtn.textContent = 'Guardar alterações'; $('cancelEdit').classList.remove('hidden');
     updatePreview(); window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (delId) {
