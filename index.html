@@ -454,9 +454,11 @@ function render() {
   let stockStat = '<div class="stat"><div class="value">—</div><div class="lbl">Stock depósito (sem entradas)</div></div>';
   const stock = stockAtual(null);
   if (stock !== null) {
-    const start = entradas.map(e => e.data).filter(Boolean).sort()[0];
+    const d = stockDetalhe(null);
     const pct = Math.round(stock / CAPACIDADE * 100);
-    stockStat = '<div class="stat' + (stock < 0 || stock > CAPACIDADE ? ' low' : '') + '"><div class="value">' + fmtNum(stock, 0) + ' L</div><div class="lbl">de ' + fmtNum(CAPACIDADE, 0) + ' L (' + pct + '%) - desde ' + fmtDate(start) + '</div></div>';
+    stockStat = '<div class="stat' + (stock < 0 || stock > CAPACIDADE ? ' low' : '') + '"><div class="value">' + fmtNum(stock, 0) + ' L</div><div class="lbl">de ' + fmtNum(CAPACIDADE, 0) + ' L (' + pct + '%) - desde ' + fmtDate(d.start) + '</div>' +
+      '<div class="lbl" style="margin-top:6px;text-transform:none;">Entradas: ' + fmtNum(d.entradas, 0) + ' L (' + d.nEntradas + ') − Abastecimentos: ' + fmtNum(d.saidas, 0) + ' L (' + d.nSaidas + ')' +
+      (d.nIgnorados ? '<br>' + d.nIgnorados + ' registos (' + fmtNum(d.ignorados, 0) + ' L) são anteriores ao início e não contam' : '') + '</div></div>';
   }
   renderEntradas();
   $('stats').innerHTML = stockStat +
@@ -468,11 +470,18 @@ function render() {
 
 const CAPACIDADE = 1200;
 
-function stockAtual(excludeEntId) {
+function stockDetalhe(excludeEntId) {
   const es = entradas.filter(e => e.id !== excludeEntId);
   if (!es.length) return null;
   const start = es.map(e => e.data).filter(Boolean).sort()[0];
-  return es.reduce((s, e) => s + (e.litros || 0), 0) - records.filter(r => r.data >= start).reduce((s, r) => s + (r.litros || 0), 0);
+  const sum = a => a.reduce((s, r) => s + (r.litros || 0), 0);
+  const dentro = records.filter(r => r.data >= start), fora = records.filter(r => !(r.data >= start));
+  return { start, entradas: sum(es), nEntradas: es.length, saidas: sum(dentro), nSaidas: dentro.length, ignorados: sum(fora), nIgnorados: fora.length };
+}
+
+function stockAtual(excludeEntId) {
+  const d = stockDetalhe(excludeEntId);
+  return d === null ? null : d.entradas - d.saidas;
 }
 
 // Litros que ainda cabem no depósito (null se não houver stock de partida)
